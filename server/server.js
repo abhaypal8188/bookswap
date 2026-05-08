@@ -21,12 +21,23 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
+// Disable Mongoose buffering for serverless
+mongoose.set('bufferCommands', false);
+
+let isConnected = false;
+
 // Database Connection for Serverless
 const connectDB = async () => {
-  if (mongoose.connection.readyState >= 1) {
-    return;
+  if (isConnected) return;
+  try {
+    const db = await mongoose.connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 5000 // Fail quickly if DB is unreachable
+    });
+    isConnected = db.connections[0].readyState === 1;
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    throw error;
   }
-  return mongoose.connect(process.env.MONGO_URI);
 };
 
 // Ensure DB is connected before handling API routes
@@ -35,8 +46,7 @@ app.use(async (req, res, next) => {
     await connectDB();
     next();
   } catch (error) {
-    console.error('Database connection error:', error);
-    res.status(500).json({ message: 'Database connection failed. Check backend logs.' });
+    res.status(500).json({ message: 'Database connection failed. Please check MongoDB IP Whitelist or URI.' });
   }
 });
 
@@ -57,6 +67,19 @@ app.get('/api/health', (req, res) => {
 // Root Route
 app.get('/', (req, res) => {
   res.send('BookSwap API is running');
+});
+
+// Debug Route
+app.get('/api/debug', (req, res) => {
+  const mongoUri = process.env.MONGO_URI || '';
+  const maskedUri = mongoUri ? mongoUri.substring(0, 20) + '...' : 'NOT_SET';
+  
+  res.json({
+    readyState: mongoose.connection.readyState,
+    readyStateText: ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown',
+    mongoUriConfigured: maskedUri,
+    nodeEnv: process.env.NODE_ENV
+  });
 });
 
 // Socket.io for Real-time Chat & Notifications
