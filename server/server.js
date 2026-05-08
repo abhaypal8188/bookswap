@@ -35,6 +35,11 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'API is running successfully' });
 });
 
+// Root Route
+app.get('/', (req, res) => {
+  res.send('BookSwap API is running');
+});
+
 // Socket.io for Real-time Chat & Notifications
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
