@@ -21,6 +21,25 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
+// Database Connection for Serverless
+const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) {
+    return;
+  }
+  return mongoose.connect(process.env.MONGO_URI);
+};
+
+// Ensure DB is connected before handling API routes
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error('Database connection error:', error);
+    res.status(500).json({ message: 'Database connection failed. Check backend logs.' });
+  }
+});
+
 // Routes
 const authRoutes = require('./routes/authRoutes');
 const bookRoutes = require('./routes/bookRoutes');
@@ -71,17 +90,15 @@ io.on('connection', (socket) => {
 // Make io accessible in routes if needed
 app.set('io', io);
 
-// Database Connection
+// Local Development Server
 const PORT = process.env.PORT || 5000;
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
+if (process.env.NODE_ENV !== 'production') {
+  connectDB().then(() => {
     console.log('MongoDB Connected');
-    if (process.env.NODE_ENV !== 'production') {
-      server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-    }
-  })
-  .catch((err) => console.log('MongoDB connection error:', err));
+    server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  }).catch((err) => console.log('MongoDB connection error:', err));
+}
 
 // Export for serverless deployment
 module.exports = app;
