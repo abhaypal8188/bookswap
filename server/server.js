@@ -30,6 +30,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/exchange', exchangeRoutes);
 
+// Health Check Route
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'API is running successfully' });
+});
+
 // Socket.io for Real-time Chat & Notifications
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
